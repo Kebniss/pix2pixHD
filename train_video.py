@@ -116,7 +116,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         )
 
         # sum per device losses
-        losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses.cpu() ]
+        losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
         loss_dict = dict(zip(model.module.loss_names, losses))
 
         # calculate final loss scalar

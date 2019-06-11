@@ -1,4 +1,4 @@
-### Copyright (C) 2017 NVIDIA Corporation. All rights reserved. 
+### Copyright (C) 2017 NVIDIA Corporation. All rights reserved.
 ### Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 import time
 from collections import OrderedDict
@@ -22,17 +22,9 @@ if opt.continue_train:
         start_epoch, epoch_iter = np.loadtxt(iter_path , delimiter=',', dtype=int)
     except:
         start_epoch, epoch_iter = 1, 0
-    print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))        
-else:    
+    print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))
+else:
     start_epoch, epoch_iter = 1, 0
-
-if opt.debug:
-    #opt.display_freq = 1
-    #opt.print_freq = 1
-    #opt.niter = 1
-    #opt.niter_decay = 0
-    #opt.max_dataset_size = 10
-    pass
 
 # additional enforced options for video
 opt.video_mode = True
@@ -123,7 +115,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         loss_D.backward()
         model.module.optimizer_D.step()
 
-        #call(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"]) 
+        #call(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"])
 
         ############## Display results and errors ##########
         ### print out errors
@@ -136,20 +128,20 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         ### save latest model
         if total_steps % opt.save_latest_freq == save_delta:
             print('saving the latest model (epoch %d, total_steps %d)' % (epoch, total_steps))
-            model.module.save('latest')            
+            model.module.save('latest')
             np.savetxt(iter_path, (epoch, epoch_iter), delimiter=',', fmt='%d')
 
         if epoch_iter >= dataset_size:
             break
-       
-    # end of epoch 
+
+    # end of epoch
     iter_end_time = time.time()
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
     ### save model for this epoch
     if epoch % opt.save_epoch_freq == 0:
-        print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))        
+        print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))
         model.module.save('latest')
         model.module.save(epoch)
         np.savetxt(iter_path, (epoch+1, 0), delimiter=',', fmt='%d')

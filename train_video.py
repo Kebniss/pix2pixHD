@@ -43,6 +43,7 @@ if opt.debug:
     os.mkdir(debug_dir)
 
 if opt.scheduled_sampling:
+    print('ATTN! scheduled_sampling True by default')
     if opt.batchSize > 1:
         raise Exception('(for now) in "scheduled sampling" mode, --batchSize has to be 1')
     if not opt.serial_batches:
@@ -53,17 +54,29 @@ if opt.scheduled_sampling:
     recursion = 0
 
 opt.video_mode = True
-data_loader = CreateDataLoader(opt) #this will look for a "frame dataset" at the location you specified
+# load frames dataset at the specified location
+data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
+
 dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)
 total_steps = (start_epoch-1) * dataset_size + epoch_iter
 model = create_model(opt)
+if opt.gpu:
+    # check if CUDA is available
+    train_on_gpu = torch.cuda.is_available()
+
+    if not train_on_gpu:
+        print('CUDA is not available.  Training on CPU ...')
+    else:
+        print('CUDA is available!  Training on GPU ...')
+        # move model to gpu
+        model = model.to('cuda')
+
 visualizer = Visualizer(opt)
 display_delta = total_steps % opt.display_freq
 print_delta = total_steps % opt.print_freq
 save_delta = total_steps % opt.save_latest_freq
-
 
 for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
@@ -77,14 +90,20 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
 
         ############## Forward Pass - frame t -> frame t+1 ######################
 
-        if opt.scheduled_sampling and (latest_generated_frame is not None) and np.random.randn(1) < opt.ss_recursion_prob:
+        if (opt.scheduled_sampling and (latest_generated_frame is not None)
+            and np.random.randn(1) < opt.ss_recursion_prob):
+            print('!!!!ATTTN!!! Using the generated frame to predict the following')
             left_frame = latest_generated_frame.detach()
             recursion += 1
         else:
-            left_frame = Variable(data['left_frame'])
             recursion = 0
+            left_frame = Variable(data['left_frame'])
+            if opt.gpu:
+                left_frame = left_frame.to('cuda')
 
         right_frame = Variable(data['right_frame'])
+        if opt.gpu:
+            right_frame = right_frame.to('cuda')
 
         if opt.debug:
             video_utils.save_tensor(left_frame, debug_dir + "/step-%d-left-r%d.jpg" % (total_steps, recursion))
@@ -97,7 +116,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         )
 
         # sum per device losses
-        losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
+        losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses.cpu() ]
         loss_dict = dict(zip(model.module.loss_names, losses))
 
         # calculate final loss scalar

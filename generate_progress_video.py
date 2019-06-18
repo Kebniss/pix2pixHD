@@ -1,9 +1,10 @@
-### Copyright (C) 2017 NVIDIA Corporation. All rights reserved. 
+### Copyright (C) 2017 NVIDIA Corporation. All rights reserved.
 ### Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 import os
 from options.test_options import TestOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
+from torchvision.utils import save_image
 
 from tqdm import tqdm
 import shutil
@@ -27,9 +28,9 @@ data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
 
 # this directory will contain the generated videos
-output_dir = os.path.join(opt.checkpoints_dir, opt.name, 'output')
-if not os.path.isdir(output_dir):
-    os.mkdir(output_dir)
+# output_dir = os.path.join(opt.checkpoints_dir, opt.name, 'output')
+# if not os.path.isdir(output_dir):
+#     os.mkdir(output_dir)
 
 # this directory will contain the frames to build the video
 frame_dir = os.path.join(opt.checkpoints_dir, opt.name, 'frames')
@@ -40,9 +41,9 @@ os.mkdir(frame_dir)
 FRAMES_PER_EPOCH = 48
 
 frame_index = 1
-for data in dataset:
+for data in [dataset[0]]:
     t = data['left_frame']
-    video_utils.save_tensor(t, 
+    video_utils.save_tensor(t,
         frame_dir + "/frame-%s.jpg" % str(frame_index).zfill(5),
         text="original video",
     )
@@ -62,6 +63,7 @@ video_id = "progress_epoch-%s-%s_%s_%.1f-s_%.1f-fps%s" % (
     "_with-%d-zoom" % opt.zoom_lvl if opt.zoom_lvl!=0 else ""
 )
 
+c = 0
 for epoch_index in range(opt.pstart, opt.pstop+1):
 
     # loading the generator model from checkpoint directory <opt.name>
@@ -79,25 +81,30 @@ for epoch_index in range(opt.pstart, opt.pstop+1):
             next_frame = image_transforms.heat_seeking(next_frame, translation_level=opt.heat_seeking_lvl, zoom_level=opt.heat_seeking_lvl)
 
         video_utils.save_tensor(
-            next_frame, 
+            next_frame,
             frame_dir + "/frame-%s.jpg" % str(frame_index).zfill(5),
             text="epoch %d" % epoch_index
         )
+        c+=1
+        if c > 10:
+            print(f'Saved images in {frame_dir}')
+            break
         current_frame = next_frame
         frame_index+=1
         pbar.update(1)
 
 pbar.close()
-
-video_path = output_dir + "/" + video_id + ".mp4"
-while os.path.isfile(video_path):
-    video_path = video_path[:-4] + "-.mp4"
-
-video_utils.video_from_frame_directory(
-    frame_dir, 
-    video_path, 
-    framerate=opt.fps, 
-    crop_to_720p=False
-)
-
-print("video ready:\n%s" % video_path)
+#
+# video_path = output_dir + "/" + video_id + ".mp4"
+# while os.path.isfile(video_path):
+#     video_path = video_path[:-4] + "-.mp4"
+#
+# video_utils.video_from_
+# frame_directory(
+#     frame_dir,
+#     video_path,
+#     framerate=opt.fps,
+#     crop_to_720p=False
+# )
+#
+# print("video ready:\n%s" % video_path)

@@ -7,21 +7,19 @@ from glob import glob
 from pathlib import Path
 
 
-def _extract_frames(video_path, parent, sampling_f=1):
-    name, _ = get_filename_extension(video_path)
-    output_folder = ''.join([parent, name])
-    rm_mkdir(output_folder)
-
+def _extract_frames(video_path, parent, start=0, sampling_f=1):
     vidcap = cv2.VideoCapture(video_path)
     success, image = vidcap.read()
     count = 0
     while success:
         if not count % sampling_f == 0:
+            # sampling
             continue
-        cv2.imwrite(''.join([output_folder, f"/{count}.jpg"]), image)
+        cv2.imwrite(''.join([dest_folder, f"/{count + start}.jpg"]), image)
         success, image = vidcap.read()  # read next
         count += 1
-    print(f'Successfully saved {count} frames to {output_folder}')
+    print(f'Successfully saved {count} frames to {dest_folder}')
+    return count + start
 
 
 parser = argparse.ArgumentParser(
@@ -34,12 +32,16 @@ parser.add_argument('-input', dest="input", required=True,
 parser.add_argument('--dest-folder', dest="dest_folder", default='./dataset/',
     help='''Path where to store frames. NB all files in this folder will be
          removed before adding the new frames''')
+parser.add_argument('--same-folder', dest="same_folder", default=False,
+    help='''Set it to True if you want to save the frames of all videos to the
+    same folder in ascending order going from the first frame of the first video
+    to the last frame of the last video. If True frames will be saved in
+    dest_folder/frames.''')
 parser.add_argument('-width', help='output width', default=640, type=int)
 parser.add_argument('-height', help='output height', default=480, type=int)
 args = parser.parse_args()
 
-rm_mkdir(args.dest_folder)
-print(f"Cleaned and created folder {args.dest_folder}")
+mkdir(args.dest_folder)
 
 if (args.width % 32 != 0) or (args.height % 32 != 0):
     raise Exception("Please use width and height that are divisible by 32")
@@ -57,5 +59,16 @@ elif os.path.isfile(args.input):
 else:
     raise ValueError('Correct inputs: folder or path to mov file only')
 
+if args.same_folder:
+    start = 0
+    dest_folder = str(Path(args.dest_folder) / 'frames')
+    mkdir(dest_folder)
+
 for v in tqdm(videos):
-    _extract_frames(v, args.dest_folder)
+    if not args.same_folder:
+        start = 0
+        name, _ = get_filename_extension(video_path)
+        dest_folder = str(Path(args.dest_folder) / name)
+        mkdir(dest_folder)
+
+    start = _extract_frames(v, dest_folder, start)

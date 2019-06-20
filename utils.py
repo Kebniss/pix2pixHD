@@ -1,6 +1,5 @@
 import os
 import ntpath
-import shutil
 
 
 def get_filename_extension(path):
@@ -9,6 +8,6 @@ def get_filename_extension(path):
 
 
 def mkdir(folder_path):
-    # if folder_path exists deletes it and creates it new
+    # if folder_path does not exist create it 
     if not os.path.isdir(folder_path):
         os.mkdir(folder_path)

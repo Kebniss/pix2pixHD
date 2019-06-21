@@ -1,6 +1,7 @@
 ### Copyright (C) 2017 NVIDIA Corporation. All rights reserved.
 ### Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 import os
+import re
 from options.test_options import TestOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
@@ -13,6 +14,14 @@ import torch
 import shutil
 import video_utils
 import image_transforms
+
+
+fname = re.compile('(\d+).jpg')
+
+
+def extract_name(path):
+    return int(fname.search(path).group(1))
+
 
 opt = TestOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -46,6 +55,7 @@ frame_index = 1
 frames_path = opt.start_from
 if os.path.isdir(frames_path):
     frames = [f for f in glob(str(Path(frames_path) / '*.jpg'))]
+    frames = sorted(frames, key=extract_name)
 else:
     raise ValueError('Please provide the path to a folder with frames.jpg')
 
@@ -61,8 +71,6 @@ for f in tqdm(frames):
         frame_dir + "/frame-%s.jpg" % str(frame_index).zfill(5),
     )
     frame_index += 1
-    if prev == current_frame:
-        print('SOMETHING WENT WRONG')
     prev = current_frame
 
 duration_s = frame_index / opt.fps

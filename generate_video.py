@@ -52,9 +52,8 @@ else:
 model = create_model(opt)
 
 frames_count = 1
+prev = 'whatever'
 for f in tqdm(frames_path):
-    if frames_count > 0:
-        prev = current_frame
     current_frame = video_utils.im2tensor(Image.open(f))
     next_frame = video_utils.next_frame_prediction(model, current_frame)
 
@@ -63,9 +62,9 @@ for f in tqdm(frames_path):
         frame_dir + "/frame-%s.jpg" % str(frame_index).zfill(5),
     )
     frame_index += 1
-
-if prev == current_frame:
-    print('SOMETHING WENT WRONG')
+    if prev == current_frame:
+        print('SOMETHING WENT WRONG')
+    prev = current_frame
 
 duration_s = frame_index / opt.fps
 video_id = "epoch-%s_%s_%.1f-s_%.1f-fps" % (

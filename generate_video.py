@@ -54,6 +54,7 @@ model = create_model(opt)
 frames_count = 1
 prev = 'whatever'
 for f in tqdm(frames_path):
+    print(f'THIS IS F: {f}')
     current_frame = video_utils.im2tensor(Image.open(f))
     next_frame = video_utils.next_frame_prediction(model, current_frame)
 

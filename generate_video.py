@@ -62,10 +62,14 @@ else:
 model = create_model(opt)
 
 frames_count = 1
+next_frame = torch.Tensor()
 for f in tqdm(frames):
     current_frame = video_utils.im2tensor(Image.open(f))
+    if frames_count > 1 and next_frame == current_frame:
+        print('NEXT == GENERATED')
     next_frame = video_utils.next_frame_prediction(model, current_frame)
-
+    if next_frame == current_frame:
+        print('CURRENT == GENERATED')
     video_utils.save_tensor(
         next_frame,
         frame_dir + "/frame-%s.jpg" % str(frame_index).zfill(5),

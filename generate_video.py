@@ -45,16 +45,14 @@ frame_index = 1
 
 frames_path = opt.start_from
 if os.path.isdir(frames_path):
-    frames = glob(str(Path(frames_path) / '*.jpg'))
+    frames = [f for f in glob(str(Path(frames_path) / '*.jpg'))]
 else:
     raise ValueError('Please provide the path to a folder with frames.jpg')
 
 model = create_model(opt)
 
 frames_count = 1
-prev = 'whatever'
-for f in tqdm(frames_path):
-    print(f'THIS IS F: {f}')
+for f in tqdm(frames):
     current_frame = video_utils.im2tensor(Image.open(f))
     next_frame = video_utils.next_frame_prediction(model, current_frame)
 

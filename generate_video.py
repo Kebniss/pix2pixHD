@@ -63,7 +63,6 @@ model = create_model(opt)
 
 frames_count = 1
 for f in tqdm(frames):
-    print(f'CUR FRAME: {f}')
     current_frame = video_utils.im2tensor(Image.open(f))
     next_frame = video_utils.next_frame_prediction(model, current_frame)
 
@@ -90,7 +89,7 @@ video_utils.video_from_frame_directory(
     frame_dir,
     video_path,
     framerate=opt.fps,
-    crop_to_720p=True,
+    crop_to_720p=False,
     reverse=False
 )
 

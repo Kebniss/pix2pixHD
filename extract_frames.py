@@ -37,6 +37,7 @@ parser.add_argument('--same-folder', dest="same_folder", default=False,
     same folder in ascending order going from the first frame of the first video
     to the last frame of the last video. If True frames will be saved in
     dest_folder/frames.''')
+parser.add_argument('--run-type', help='train or test', default='train')
 parser.add_argument('-width', help='output width', default=640, type=int)
 parser.add_argument('-height', help='output height', default=480, type=int)
 args = parser.parse_args()
@@ -61,7 +62,7 @@ else:
 
 if args.same_folder:
     start = 0
-    dest_folder = str(Path(args.dest_folder) / 'frames')
+    dest_folder = str(Path(args.dest_folder) / f'{args.run_type}_frames')
     mkdir(dest_folder)
 
 for v in tqdm(videos):

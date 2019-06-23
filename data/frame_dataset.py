@@ -41,8 +41,8 @@ class FrameDataset(BaseDataset):
 
     def __getitem__(self, index):
 
-        left_frame_path = self.frame_paths[index][0]
-        right_frame_path = self.frame_paths[index+1][0]
+        left_frame_path = self.frame_paths[index]
+        right_frame_path = self.frame_paths[index+1]
 
         input_dict = {
             'left_path': left_frame_path,

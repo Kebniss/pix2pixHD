@@ -12,6 +12,7 @@ def _extract_frames(video_path, parent, start=0, sampling_f=1):
     success, image = success, image = vidcap.read()
     count = -1
     saved = 0
+    print(f'Processing: {video_path}')
     while success:
         count += 1
         if count % 300 == 0:

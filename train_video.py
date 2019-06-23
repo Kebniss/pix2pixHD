@@ -9,6 +9,8 @@ import util.util as util
 from util.visualizer import Visualizer
 import torch
 from torch.autograd import Variable
+from data.base_dataset import get_params, get_transform
+from PIL import Image
 
 import os
 import numpy as np
@@ -88,6 +90,15 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         total_steps += opt.batchSize
         epoch_iter += opt.batchSize
 
+        left_frame = Image.open(data['left_path'])
+        right_frame = Image.open(data['right_frame'])
+
+        params = get_params(dataset.opt, left_frame.size)
+        transform = get_transform(dataset.opt, params)
+
+        left_frame = transform(left_frame.convert('RGB'))
+        right_frame = transform(right_frame.convert('RGB'))
+
         ############## Forward Pass - frame t -> frame t+1 ######################
 
         if (opt.scheduled_sampling and (latest_generated_frame is not None)
@@ -97,11 +108,9 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             recursion += 1
         else:
             recursion = 0
-            left_frame = Variable(data['left_frame'])
             if opt.gpu:
                 left_frame = left_frame.to('cuda')
 
-        right_frame = Variable(data['right_frame'])
         if opt.gpu:
             right_frame = right_frame.to('cuda')
 

@@ -25,7 +25,16 @@ class MultiFrameDataset(BaseDataset):
             self.data.extend((ds[i]) for i in range(len(ds)))
 
     def __getitem__(self, index):
-        return self.data[index]
+        data = self.data[index]
+        left_frame = Image.open(data['left_path'][0])
+        right_frame = Image.open(data['right_path'][0])
+
+        params = get_params(self.opt, left_frame.size)
+        transform = get_transform(self.opt, params)
+
+        left_frame = transform(left_frame.convert('RGB'))
+        right_frame = transform(right_frame.convert('RGB'))
+        return (left_frame, right_frame)
 
     def __len__(self):
         return len(self.data)

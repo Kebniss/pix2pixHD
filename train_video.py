@@ -94,7 +94,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         right_frame = Image.open(data['right_path'][0])
 
         params = get_params(opt, left_frame.size)
-        transform = get_transform(dataset.opt, params)
+        transform = get_transform(opt, params)
 
         left_frame = transform(left_frame.convert('RGB'))
         right_frame = transform(right_frame.convert('RGB'))

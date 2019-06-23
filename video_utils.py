@@ -90,7 +90,7 @@ def video_from_frame_directory(frame_dir, video_path, frame_file_glob=r"frame-%0
         ffmpeg_verbosity,
         framerate,
         frame_dir + "/" + frame_file_glob,
-        ' -filter:v "crop=1280:720:0:16"' if crop_to_720p else "",
+        ' -filter:v "crop=640:480:0:16"' if crop_to_720p else "",
         "-vf reverse " if reverse else "",
         video_path
     )

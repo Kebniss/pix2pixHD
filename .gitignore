@@ -1,4 +1,5 @@
 debug*
+datasets/
 checkpoints/
 results/
 build/
@@ -38,3 +39,4 @@ test/.coverage
 test/data/legacy_serialized.pt
 *.DS_Store
 *~
+*.mp4

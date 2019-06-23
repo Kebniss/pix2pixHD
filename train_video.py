@@ -91,7 +91,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         epoch_iter += opt.batchSize
 
         left_frame = Image.open(data['left_path'][0])
-        right_frame = Image.open(data['right_frame'][0])
+        right_frame = Image.open(data['right_path'][0])
 
         params = get_params(dataset.opt, left_frame.size)
         transform = get_transform(dataset.opt, params)

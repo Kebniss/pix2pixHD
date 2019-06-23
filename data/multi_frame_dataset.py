@@ -26,8 +26,8 @@ class MultiFrameDataset(BaseDataset):
 
     def __getitem__(self, index):
         data = self.data[index]
-        left_frame = Image.open(data['left_path'][0])
-        right_frame = Image.open(data['right_path'][0])
+        left_frame = Image.open(data['left_path'])
+        right_frame = Image.open(data['right_path'])
 
         params = get_params(self.opt, left_frame.size)
         transform = get_transform(self.opt, params)

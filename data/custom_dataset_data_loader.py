@@ -6,9 +6,10 @@ def CreateDataset(opt):
     dataset = None
     from data.aligned_dataset import AlignedDataset
     from data.frame_dataset import FrameDataset
+    from data.multi_frame_dataset import MultiFrameDataset
 
     if opt.video_mode:
-        dataset = FrameDataset()
+        dataset = MultiFrameDataset()
     else:
         dataset = AlignedDataset()
 

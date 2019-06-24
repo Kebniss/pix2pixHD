@@ -63,7 +63,9 @@ dataset = data_loader.load_data()
 dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)
 total_steps = (start_epoch-1) * dataset_size + epoch_iter
+# print(f'Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
 model = create_model(opt)
+# print(f'After model init. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
 if opt.gpu:
     # check if CUDA is available
     train_on_gpu = torch.cuda.is_available()
@@ -72,8 +74,10 @@ if opt.gpu:
         print('CUDA is not available.  Training on CPU ...')
     else:
         print('CUDA is available!  Training on GPU ...')
+        # print(f'Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
         # move model to gpu
         model = model.to('cuda')
+        # print(f'After model moved. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
 
 visualizer = Visualizer(opt)
 display_delta = total_steps % opt.display_freq
@@ -100,15 +104,17 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         right_frame = transform(right_frame.convert('RGB'))
 
         if opt.gpu:
-            left_frame = left_frame.to('cuda')
-            right_frame = right_frame.to('cuda')
+            left_frame = left_frame.unsqueeze(0).to('cuda')
+            # print(f'After left frame moved. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
+            right_frame = right_frame.unsqueeze(0).to('cuda')
+            # print(f'After right frame moved. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
 
         if opt.debug:
             video_utils.save_tensor(left_frame, debug_dir + "/step-%d-left-r%d.jpg" % (total_steps, recursion))
             video_utils.save_tensor(right_frame, debug_dir + "/step-%d-right.jpg" % total_steps)
 
-        print(f"LEFT FRAME: {left_frame.size()}")
-        print(f"RIGHT FRAME: {right_frame.size()}")
+        # print(f"LEFT FRAME: {left_frame.size()}")
+        # print(f"RIGHT FRAME: {right_frame.size()}")
 
         losses, latest_generated_frame = model(
             left_frame, None,

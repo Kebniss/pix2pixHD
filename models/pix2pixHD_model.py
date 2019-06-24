@@ -161,6 +161,7 @@ class Pix2PixHDModel(BaseModel):
         input_label, inst_map, real_image, feat_map = self.encode_input(label, inst, image, feat)  
 
         # Fake Generation
+        # print(f'Fake gen. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
         if self.use_features:
             if not self.opt.load_features:
                 feat_map = self.netE.forward(real_image, inst_map)                     
@@ -170,18 +171,22 @@ class Pix2PixHDModel(BaseModel):
         fake_image = self.netG.forward(input_concat)
 
         # Fake Detection and Loss
+        # print(f'Fake detection and loss. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
         pred_fake_pool = self.discriminate(input_label, fake_image, use_pool=True)
         loss_D_fake = self.criterionGAN(pred_fake_pool, False)        
 
-        # Real Detection and Loss        
+        # Real Detection and Loss       
+        # print(f'Real detection and loss. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB') 
         pred_real = self.discriminate(input_label, real_image)
         loss_D_real = self.criterionGAN(pred_real, True)
 
-        # GAN loss (Fake Passability Loss)        
+        # GAN loss (Fake Passability Loss)     
+        # print(f'GAN loss. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')   
         pred_fake = self.netD.forward(torch.cat((input_label, fake_image), dim=1))        
         loss_G_GAN = self.criterionGAN(pred_fake, True)               
         
         # GAN feature matching loss
+        # print(f'GAN feature matching loss. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
         loss_G_GAN_Feat = 0
         if not self.opt.no_ganFeat_loss:
             feat_weights = 4.0 / (self.opt.n_layers_D + 1)
@@ -192,6 +197,7 @@ class Pix2PixHDModel(BaseModel):
                         self.criterionFeat(pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat
                    
         # VGG feature matching loss
+        # print(f'VGG feature matching loss. Cur mem allocated: {torch.cuda.memory_allocated() / 1e6} MB')
         loss_G_VGG = 0
         if not self.opt.no_vgg_loss:
             loss_G_VGG = self.criterionVGG(fake_image, real_image) * self.opt.lambda_feat

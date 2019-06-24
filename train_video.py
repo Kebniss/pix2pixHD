@@ -89,9 +89,9 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         iter_start_time = time.time()
         total_steps += opt.batchSize
         epoch_iter += opt.batchSize
-
-        left_frame = Image.open(data['left_path'])
-        right_frame = Image.open(data['right_path'])
+        
+        left_frame = Image.open(data['left_path'][0])
+        right_frame = Image.open(data['right_path'][0])
 
         params = get_params(opt, left_frame.size)
         transform = get_transform(opt, params)
@@ -106,6 +106,9 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         if opt.debug:
             video_utils.save_tensor(left_frame, debug_dir + "/step-%d-left-r%d.jpg" % (total_steps, recursion))
             video_utils.save_tensor(right_frame, debug_dir + "/step-%d-right.jpg" % total_steps)
+
+        print(f"LEFT FRAME: {left_frame.size()}")
+        print(f"RIGHT FRAME: {right_frame.size()}")
 
         losses, latest_generated_frame = model(
             left_frame, None,

@@ -23,6 +23,7 @@ class MeanVarOptions(TestOptions):
     def __init__(self):
         TestOptions.__init__(self)
         self.parser.add_argument('--root-dir', help='dir containing the two classes folders', dest="root_dir")
+        self.parser.add_argument('--gpu', type=bool, default=False, help='Train on GPU')
 
 opt = MeanVarOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -48,8 +49,8 @@ all_differences = []
 path_differences = {}
 with torch.no_grad():
     for i, data in enumerate(tqdm(has_tgt)):
-        left_frame = Image.open(data['left_path'][0])
-        real_right_frame = Image.open(data['right_path'][0])
+        left_frame = Image.open(data['left_path'])
+        real_right_frame = Image.open(data['right_path'])
 
         left_frame = video_utils.im2tensor(left_frame)
         real_right_frame = video_utils.im2tensor(real_right_frame)
@@ -79,8 +80,8 @@ no_tgt.initialize(opt)
 path_differences = {}
 with torch.no_grad():
     for i, data in enumerate(no_tgt):
-        left_frame = Image.open(data['left_path'][0])
-        real_right_frame = Image.open(data['right_path'][0])
+        left_frame = Image.open(data['left_path'])
+        real_right_frame = Image.open(data['right_path'])
 
         left_frame = video_utils.im2tensor(left_frame)
         real_right_frame = video_utils.im2tensor(real_right_frame)

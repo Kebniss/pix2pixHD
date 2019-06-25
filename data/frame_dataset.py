@@ -11,13 +11,15 @@ def extract_frame_id_int(path, pattern):
     # extract frame id as int
     return int(pattern.search(path).group(1))
 
+
 class FrameDataset(BaseDataset):
     def __init__(self, root=None, opt=None):
         if root:
             self.root = root
             self.opt = opt
             self.dir_frames = root
-            self.sort_key = partial(extract_frame_id_int, pattern=re.compile('(\d+).jpg'))
+            self.sort_key = partial(extract_frame_id_int,
+                                    pattern=re.compile('(\d+)[\.jpg|\.png]'))
             self.frame_paths = sorted([i for i in make_dataset(self.root)],
                                       key=self.sort_key)
             self.frame_count = len(self.frame_paths)

@@ -8,6 +8,7 @@ from models.models import create_model
 from glob import glob
 from pathlib import Path
 
+import json
 from tqdm import tqdm
 from PIL import Image
 import torch
@@ -15,14 +16,7 @@ from torch import nn
 import shutil
 import video_utils
 import image_transforms
-
-
-fname = re.compile('(\d+).jpg')
-
-
-def extract_name(path):
-    return int(fname.search(path).group(1))
-
+from data.multi_frame_dataset import MultiFrameDataset
 
 opt = TestOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -36,60 +30,23 @@ opt.label_nc = 0
 opt.no_instance = True
 opt.resize_or_crop = "none"
 
-# loading initial frames from: ./datasets/NAME/test_frames
-data_loader = CreateDataLoader(opt)
-dataset = data_loader.load_data()
-
-# this directory will contain the generated videos
-output_dir = os.path.join(opt.checkpoints_dir, opt.name, 'output')
-if not os.path.isdir(output_dir):
-    os.mkdir(output_dir)
-
-# this directory will contain the frames to build the video
-frame_dir = os.path.join(opt.checkpoints_dir, opt.name, 'frames')
-if os.path.isdir(frame_dir):
-    shutil.rmtree(frame_dir)
-os.mkdir(frame_dir)
-
-frame_index = 1
-
-frames_path = opt.start_from
-if os.path.isdir(frames_path):
-    frames = [f for f in glob(str(Path(frames_path) / '*.jpg'))]
-    frames = sorted(frames, key=extract_name)
-else:
-    raise ValueError('Please provide the path to a folder with frames.jpg')
-
 model = create_model(opt)
 
-frames_count = 1
-next_frame = torch.Tensor()
-
 # Not real code TODO change with opt as MultiFrameDataset wants .initialize()...
-# positives = MultiFrameDataset()
+print('Processing has_target folder')
+has_tgt = MultiFrameDataset()
+opt.dataroot = "/Users/ludovica/Documents/Insight/data/my_processed_data/validation/has_tgt"
+has_tgt.initialize(opt)
 
-# MOST LIKELY it's something like this. And then you need to do it again for normal
-opt.dataroot = "datasets/insight_dataset/validation/positive"  # TODO CHANGE
-
-# This one has MultiFrameDataset's init hardcoded inside. Change it to the right folders
-# from there...
-data_loader = CreateDataLoader(opt)
-dataset = data_loader.load_data()
-
-dataset_size = len(data_loader)
-
-differences = []
+all_differences = []
+path_differences = {}
 with torch.no_grad():
-    for i, data in enumerate(dataset):
-        iter_start_time = time.time()
-        total_steps += opt.batchSize
-        epoch_iter += opt.batchSize
-        
+    for i, data in enumerate(tqdm(has_tgt)):
         left_frame = Image.open(data['left_path'][0])
         real_right_frame = Image.open(data['right_path'][0])
 
         left_frame = video_utils.im2tensor(left_frame)
-        real_right_frame = video_utils.im2tensor(right_frame)
+        real_right_frame = video_utils.im2tensor(real_right_frame)
 
         if opt.gpu:
             left_frame = left_frame.to('cuda')
@@ -97,30 +54,30 @@ with torch.no_grad():
 
         generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
         loss = nn.MSELoss()
-        differences.append(float(loss(generated_right_frame, real_right_frame)))
+        cur_loss = float(loss(generated_right_frame, real_right_frame))
 
+        fname = Path(data['left_path'][0]).parent.name
+        if fname not in path_differences:
+            path_differences[fname] = []
+        path_differences[fname].append(cur_loss)
+        all_differences.append(cur_loss)
 
-negatives = MultiFrameDataset("datasets/insight_dataset/validation/norm")
+with open(Path(opt.dataroot) / 'has_tgt_differences.json', 'w') as fout:
+    json.dump(path_differences, fout)
 
-# This one has MultiFrameDataset's init hardcoded inside. Change it to the right folders
-# from there...
-data_loader = CreateDataLoader(opt)
-dataset = data_loader.load_data()
+print('Processing no_target folder')
+no_tgt = MultiFrameDataset()
+opt.dataroot = "/Users/ludovica/Documents/Insight/data/my_processed_data/validation/no_tgt"
+no_tgt.initialize(opt)
 
-dataset_size = len(data_loader)
-
-differences = []
+path_differences = {}
 with torch.no_grad():
-    for i, data in enumerate(dataset):
-        iter_start_time = time.time()
-        total_steps += opt.batchSize
-        epoch_iter += opt.batchSize
-        
+    for i, data in enumerate(no_tgt):
         left_frame = Image.open(data['left_path'][0])
         real_right_frame = Image.open(data['right_path'][0])
 
         left_frame = video_utils.im2tensor(left_frame)
-        real_right_frame = video_utils.im2tensor(right_frame)
+        real_right_frame = video_utils.im2tensor(real_right_frame)
 
         if opt.gpu:
             left_frame = left_frame.to('cuda')
@@ -128,21 +85,28 @@ with torch.no_grad():
 
         generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
         loss = nn.MSELoss()
-        differences.append(float(loss(generated_right_frame, real_right_frame)))
+        cur_loss = float(loss(generated_right_frame, real_right_frame))
 
+        fname = Path(data['left_path'][0]).parent.name
+        if fname not in path_differences:
+            path_differences[fname] = []
+        path_differences[fname].append(cur_loss)
+        all_differences.append(cur_loss)
 
+with open(Path(opt.dataroot) / 'no_tgt_differences.json', 'w') as fout:
+    json.dump(path_differences, fout)
 
+with open(Path(opt.dataroot) / 'all_differences.txt', 'w') as f:
+    for item in all_differences:
+        f.write(f"{item}\n")
 
+# Now all_differences[] contains all the deltas between generated frames and real frames
+mean = torch.mean(all_differences)
+std = torch.std(all_differences)
 
+print(f'MEAN: {mean}')
+print(f'STD: {std}')
 
-# Now differences[] contains all the deltas between generated frames and real frames
-
-import json
-with open(..., 'w') as fout:
-    json.dump(differences, fout)
-
-mean = torch.mean(...)
-std = torch.std(...)
-
-print(f"MEAN: {mean}")
-print(f"STD: {variance")
+with open(Path(opt.dataroot) / 'mean_std.txt', 'w') as f:
+    f.write(f'MEAN: {mean}\n')
+    f.write(f'STD: {std}')

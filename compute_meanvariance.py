@@ -69,6 +69,7 @@ with torch.no_grad():
         path_differences[fname].append(cur_loss)
         all_differences.append(cur_loss)
 
+print('Saving has_tgt_differences')
 with open(Path(opt.dataroot) / 'has_tgt_differences.json', 'w') as fout:
     json.dump(path_differences, fout)
 
@@ -100,9 +101,11 @@ with torch.no_grad():
         path_differences[fname].append(cur_loss)
         all_differences.append(cur_loss)
 
+print('Saving no_tgt_differences')
 with open(Path(opt.dataroot) / 'no_tgt_differences.json', 'w') as fout:
     json.dump(path_differences, fout)
 
+print('Saving all_differences')
 with open(Path(opt.dataroot) / 'all_differences.txt', 'w') as f:
     for item in all_differences:
         f.write(f"{item}\n")

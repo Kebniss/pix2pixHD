@@ -16,9 +16,15 @@ from torch import nn
 import shutil
 import video_utils
 import image_transforms
+import argparse
 from data.multi_frame_dataset import MultiFrameDataset
 
-opt = TestOptions().parse(save=False)
+class MeanVarOptions(TestOptions):
+    def __init__(self):
+        TestOptions.__init__(self)
+        self.parser.add_argument('--root-dir', help='dir containing the two classes folders', dest="root_dir")
+
+opt = MeanVarOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
 opt.batchSize = 1  # test code only supports batchSize = 1
 opt.serial_batches = True  # no shuffle
@@ -35,7 +41,7 @@ model = create_model(opt)
 # Not real code TODO change with opt as MultiFrameDataset wants .initialize()...
 print('Processing has_target folder')
 has_tgt = MultiFrameDataset()
-opt.dataroot = "/Users/ludovica/Documents/Insight/data/my_processed_data/validation/has_tgt"
+opt.dataroot = str(Path(opt.root_dir / "has_tgt"))
 has_tgt.initialize(opt)
 
 all_differences = []
@@ -67,7 +73,7 @@ with open(Path(opt.dataroot) / 'has_tgt_differences.json', 'w') as fout:
 
 print('Processing no_target folder')
 no_tgt = MultiFrameDataset()
-opt.dataroot = "/Users/ludovica/Documents/Insight/data/my_processed_data/validation/no_tgt"
+opt.dataroot = str(Path(opt.root_dir / "no_tgt"))
 no_tgt.initialize(opt)
 
 path_differences = {}

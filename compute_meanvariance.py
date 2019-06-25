@@ -41,7 +41,7 @@ model = create_model(opt)
 # Not real code TODO change with opt as MultiFrameDataset wants .initialize()...
 print('Processing has_target folder')
 has_tgt = MultiFrameDataset()
-opt.dataroot = str(Path(opt.root_dir / "has_tgt"))
+opt.dataroot = str(Path(opt.root_dir) / "has_tgt")
 has_tgt.initialize(opt)
 
 all_differences = []
@@ -73,7 +73,7 @@ with open(Path(opt.dataroot) / 'has_tgt_differences.json', 'w') as fout:
 
 print('Processing no_target folder')
 no_tgt = MultiFrameDataset()
-opt.dataroot = str(Path(opt.root_dir / "no_tgt"))
+opt.dataroot = str(Path(opt.root_dir) / "no_tgt")
 no_tgt.initialize(opt)
 
 path_differences = {}

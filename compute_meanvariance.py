@@ -114,6 +114,6 @@ std = torch.std(all_differences)
 print(f'MEAN: {mean}')
 print(f'STD: {std}')
 
-with open(Path(opt.dataroot) / 'mean_std.txt', 'w') as f:
-    f.write(f'MEAN: {mean}\n')
-    f.write(f'STD: {std}')
+ms = {'mean': mean, 'std':std}
+with open(Path(opt.dataroot) / 'mean_std.json', 'w') as f:
+    json.dump(ms, fout)

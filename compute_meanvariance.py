@@ -94,7 +94,7 @@ with torch.no_grad():
         loss = nn.MSELoss()
         cur_loss = float(loss(generated_right_frame, real_right_frame))
 
-        fname = Path(data['left_path'][0]).parent.name
+        fname = Path(data['left_path']).parent.name
         if fname not in path_differences:
             path_differences[fname] = []
         path_differences[fname].append(cur_loss)

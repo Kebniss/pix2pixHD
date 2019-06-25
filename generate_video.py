@@ -16,11 +16,9 @@ import video_utils
 import image_transforms
 
 
-fname = re.compile('(\d+).jpg')
-
-
 def extract_name(path):
-    return int(fname.search(path).group(1))
+    pat = re.compile('(\d+)[\.jpg|\.png]')
+    return int(pat.search(path).group(1))
 
 
 opt = TestOptions().parse(save=False)

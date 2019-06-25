@@ -48,7 +48,7 @@ class ScaleWidth(object):
 
 class VideoProcessPipeline:
 
-    def __init__(self, cv2_video, video_name="video", video_labels=None, save_every=10, scale_to_width=1024):
+    def __init__(self, cv2_video, video_name="video", video_labels=None, save_every=3, scale_to_width=1024):
         self.video = cv2_video
         self.video_fps = cv2_video.get(cv2.CAP_PROP_FPS)
         self.video_name = video_name.split('.')[0]
@@ -60,11 +60,11 @@ class VideoProcessPipeline:
 
         success, image = cv2_video.read()
         image = self.preprocess(image)
-        self.frames.append(image)
+        self.frames.append((image, 0))
         i = 1
         while success:
             if i % save_every == 0:
-                self.frames.append(self.preprocess(image))
+                self.frames.append((self.preprocess(image), i))
             success, image = cv2_video.read()
             i += 1
         print(f'Processed {i} frames')
@@ -97,8 +97,7 @@ class VideoProcessPipeline:
             self.frames[x:x+chunk_size]
             for x in range(0, len(self.frames), chunk_size)
         ]
-        anormal_chunks = {math.floor(lab/chunk_size/self.save_every)
-                          for lab in self.video_labels}
+        anormal_chunks = {math.floor(lab/chunk_size/self.save_every) for lab in self.video_labels}
         self.frames = [
             {
                 'label': 'has_anomaly' if i in anormal_chunks else 'normal',
@@ -138,7 +137,7 @@ class VideoProcessPipeline:
 
             write_dir = Path(root) / f"{label}" / f"{self.video_name}_chunk{i}"
             os.makedirs(write_dir, exist_ok=True)
-            for j, img in enumerate(frames):
+            for img, j in frames:
                 img.save(write_dir / f"{j}.png","PNG")
         return True
 
@@ -163,7 +162,7 @@ for p in tqdm.tqdm(train_videos):
         vidcap,
         vname,
         labels[vname],
-        save_every=10,
+        save_every=3,
         scale_to_width=1024
     )
     processed.label_frames()

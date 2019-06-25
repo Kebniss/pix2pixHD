@@ -8,6 +8,7 @@ from models.models import create_model
 from glob import glob
 from pathlib import Path
 
+import json
 from tqdm import tqdm
 from PIL import Image
 import torch
@@ -15,16 +16,17 @@ from torch import nn
 import shutil
 import video_utils
 import image_transforms
+import argparse
+from data.multi_frame_dataset import MultiFrameDataset
 
+class MeanVarOptions(TestOptions):
+    def __init__(self):
+        TestOptions.__init__(self)
+        self.parser.add_argument('--root-dir', help='dir containing the two classes folders', dest="root_dir")
+        self.parser.add_argument('--gpu', type=bool, default=False, help='Train on GPU')
+        self.parser.add_argument('--mean-var', help='path to file with mean and std from validation set')
 
-fname = re.compile('(\d+).jpg')
-
-
-def extract_name(path):
-    return int(fname.search(path).group(1))
-
-
-opt = TestOptions().parse(save=False)
+opt = MeanVarOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
 opt.batchSize = 1  # test code only supports batchSize = 1
 opt.serial_batches = True  # no shuffle
@@ -36,60 +38,27 @@ opt.label_nc = 0
 opt.no_instance = True
 opt.resize_or_crop = "none"
 
-# loading initial frames from: ./datasets/NAME/test_frames
-data_loader = CreateDataLoader(opt)
-dataset = data_loader.load_data()
-
-# this directory will contain the generated videos
-output_dir = os.path.join(opt.checkpoints_dir, opt.name, 'output')
-if not os.path.isdir(output_dir):
-    os.mkdir(output_dir)
-
-# this directory will contain the frames to build the video
-frame_dir = os.path.join(opt.checkpoints_dir, opt.name, 'frames')
-if os.path.isdir(frame_dir):
-    shutil.rmtree(frame_dir)
-os.mkdir(frame_dir)
-
-frame_index = 1
-
-frames_path = opt.start_from
-if os.path.isdir(frames_path):
-    frames = [f for f in glob(str(Path(frames_path) / '*.jpg'))]
-    frames = sorted(frames, key=extract_name)
-else:
-    raise ValueError('Please provide the path to a folder with frames.jpg')
+with open(Path(opt.mean_var) / 'mean_std.json', 'r') as fin:
+    ms = json.load(fin)
+    mean = ms['mean']
+    std = ms['std']
 
 model = create_model(opt)
 
-frames_count = 1
-next_frame = torch.Tensor()
-
 # Not real code TODO change with opt as MultiFrameDataset wants .initialize()...
-positives = MultiFrameDataset("datasets/insight_dataset/validation/has_anomaly")
-negatives = MultiFrameDataset("datasets/insight_dataset/validation/norm")
+print('Processing has_target folder')
+has_tgt = MultiFrameDataset()
+opt.dataroot = str(Path(opt.root_dir) / "has_tgt")
+has_tgt.initialize(opt)
 
-# This one has MultiFrameDataset's init hardcoded inside. Change it to the right folders
-# from there...
-data_loader = CreateDataLoader(opt)
-dataset = data_loader.load_data()
-
-dataset_size = len(data_loader)
-
-differences = []
-
-preds = []
+identified = {}
 with torch.no_grad():
-    for i, data in enumerate(dataset):
-        iter_start_time = time.time()
-        total_steps += opt.batchSize
-        epoch_iter += opt.batchSize
-        
-        left_frame = Image.open(data['left_path'][0])
-        real_right_frame = Image.open(data['right_path'][0])
+    for i, data in enumerate(tqdm(has_tgt)):
+        left_frame = Image.open(data['left_path'])
+        real_right_frame = Image.open(data['right_path'])
 
         left_frame = video_utils.im2tensor(left_frame)
-        real_right_frame = video_utils.im2tensor(right_frame)
+        real_right_frame = video_utils.im2tensor(real_right_frame)
 
         if opt.gpu:
             left_frame = left_frame.to('cuda')
@@ -97,18 +66,40 @@ with torch.no_grad():
 
         generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
         loss = nn.MSELoss()
-        loss_score = float(loss(generated_right_frame, real_right_frame))
-        y_pred = 'has_anomaly' if loss_score > mean + 2 * std else 'normal'
-        y_true = ... # TODO read from folder eg datasets/insight_dataset/validation/**has_anomaly**
-        preds.append((y_pred, y_true))
+        cur_loss = float(loss(generated_right_frame, real_right_frame))
 
+        if mean-2*std < cur_loss < mean+2*std:
+            fname = Path(data['left_path']).parent.name
+            if fname not in identified:
+                identified[fname] = {}
+            identified[fname]['frame': Path(data['left_path']).name, 'score': cur_loss, 'has_tgt': 1]
 
-import json
-with open(..., 'w') as fout:
-    json.dump(preds, fout)
+print('Processing no_target folder')
+no_tgt = MultiFrameDataset()
+opt.dataroot = str(Path(opt.root_dir) / "no_tgt")
+no_tgt.initialize(opt)
 
+with torch.no_grad():
+    for i, data in enumerate(no_tgt):
+        left_frame = Image.open(data['left_path'])
+        real_right_frame = Image.open(data['right_path'])
 
-from sklearn.metrics import f1score
+        left_frame = video_utils.im2tensor(left_frame)
+        real_right_frame = video_utils.im2tensor(real_right_frame)
 
-f1score(y_pred, y_true)
-...
+        if opt.gpu:
+            left_frame = left_frame.to('cuda')
+            real_right_frame = real_right_frame.to('cuda')
+
+        generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
+        loss = nn.MSELoss()
+        cur_loss = float(loss(generated_right_frame, real_right_frame))
+
+        if mean-2*std < cur_loss < mean+2*std:
+            fname = Path(data['left_path']).parent.name
+            if fname not in identified:
+                identified[fname] = {}
+            identified[fname]['frame': Path(data['left_path']).name, 'score': cur_loss, 'has_tgt': 0]
+
+with open(Path(opt.dataroot) / 'identified.json', 'w') as fout:
+    json.dump(identified, fout)

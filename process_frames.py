@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import os
 import tqdm
+from torchvision.transforms import CenterCrop
 
 
 class ToPIL(object):
@@ -21,6 +22,21 @@ class ToPIL(object):
         is_PIL = isinstance(clip[0], PIL.Image.Image)
         if not is_PIL:
             return [PIL.Image.fromarray(img) for img in clip]
+
+
+class CropOnCenter(object):
+    """
+    Crop image on center
+    """
+    def __init__(self, size):
+        self.size = size
+        self.crop = CenterCrop(size)
+
+    def __call__(self, img):
+        is_PIL = isinstance(img, PIL.Image.Image)
+        if not is_PIL:
+            img = PIL.Image.fromarray(img)
+        return self.crop(img)
 
 
 class ScaleWidth(object):
@@ -48,23 +64,26 @@ class ScaleWidth(object):
 
 class VideoProcessPipeline:
 
-    def __init__(self, cv2_video, video_name="video", video_labels=None, save_every=3, scale_to_width=1024):
+    def __init__(self, cv2_video, video_name="video", video_labels=None, save_every=3, scale_to_width=640):
         self.video = cv2_video
         self.video_fps = cv2_video.get(cv2.CAP_PROP_FPS)
         self.video_name = video_name.split('.')[0]
-        self.preprocess = ScaleWidth(scale_to_width).scale_width
+        self.preprocess = [CropOnCenter((768, 1024)), ScaleWidth(scale_to_width).scale_width]
         self.save_every = save_every
 
         self.frames = []
         self.video_labels = video_labels
 
         success, image = cv2_video.read()
-        image = self.preprocess(image)
+        for p in self.preprocess:
+            image = p(image)
         self.frames.append((image, 0))
         i = 1
         while success:
             if i % save_every == 0:
-                self.frames.append((self.preprocess(image), i))
+                for p in self.preprocess:
+                    image = p(image)
+                self.frames.append((image, i))
             success, image = cv2_video.read()
             i += 1
         print(f'Processed {i} frames')
@@ -163,10 +182,10 @@ for p in tqdm.tqdm(train_videos):
         vname,
         labels[vname],
         save_every=3,
-        scale_to_width=1024
+        scale_to_width=640
     )
     processed.label_frames()
-    processed.write_labeled_frames("/Users/ludovica/Documents/Insight/data/my_processed_data/train/")
+    processed.write_labeled_frames("/Users/ludovica/Documents/Insight/data/my_processed_data_640_slice/train/")
 
 
 validation_videos = list(Path(ROOT).glob("validation/*.mp4"))
@@ -178,7 +197,7 @@ for p in tqdm.tqdm(validation_videos):
         vname,
         labels[vname],
         save_every=10,
-        scale_to_width=1024
+        scale_to_width=640
     )
     processed.label_frames()
-    processed.write_labeled_frames("/Users/ludovica/Documents/Insight/data/my_processed_data/validation")
+    processed.write_labeled_frames("/Users/ludovica/Documents/Insight/data/my_processed_data_640_slice/validation")

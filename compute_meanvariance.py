@@ -7,6 +7,7 @@ from data.data_loader import CreateDataLoader
 from models.models import create_model
 from glob import glob
 from pathlib import Path
+from time import time
 
 import json
 from tqdm import tqdm
@@ -42,9 +43,10 @@ model = create_model(opt)
 # Not real code TODO change with opt as MultiFrameDataset wants .initialize()...
 print('Processing has_target folder')
 has_tgt = MultiFrameDataset()
-opt.dataroot = str(Path(opt.root_dir) / "has_tgt")
+opt.dataroot = str(Path(opt.root_dir) / "has_target")
 has_tgt.initialize(opt)
 
+all_times = []
 all_differences = []
 path_differences = {}
 with torch.no_grad():
@@ -59,7 +61,10 @@ with torch.no_grad():
             left_frame = left_frame.to('cuda')
             real_right_frame = real_right_frame.to('cuda')
 
+        t0 = time()
         generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
+        t1 = time()
+        all_times.append(t1 - t0)
         loss = nn.MSELoss()
         cur_loss = float(loss(generated_right_frame, real_right_frame))
 
@@ -73,9 +78,9 @@ print('Saving has_tgt_differences')
 with open(Path(opt.dataroot) / 'has_tgt_differences.json', 'w') as fout:
     json.dump(path_differences, fout)
 
-print('Processing no_target folder')
+print('Processing normal folder')
 no_tgt = MultiFrameDataset()
-opt.dataroot = str(Path(opt.root_dir) / "no_tgt")
+opt.dataroot = str(Path(opt.root_dir) / "normal")
 no_tgt.initialize(opt)
 
 path_differences = {}
@@ -91,7 +96,10 @@ with torch.no_grad():
             left_frame = left_frame.to('cuda')
             real_right_frame = real_right_frame.to('cuda')
 
+        t0 = time()
         generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
+        t1 = time()
+        all_times.append(t1 - t0)
         loss = nn.MSELoss()
         cur_loss = float(loss(generated_right_frame, real_right_frame))
 
@@ -101,22 +109,29 @@ with torch.no_grad():
         path_differences[fname].append(cur_loss)
         all_differences.append(cur_loss)
 
-print('Saving no_tgt_differences')
-with open(Path(opt.dataroot) / 'no_tgt_differences.json', 'w') as fout:
-    json.dump(path_differences, fout)
+avg_time = sum(all_times) / len(all_times)
+print(f'Average inference time: {avg_time}')
+# avgt = {'avg_time': avg_time}
+# with open(Path(opt.dataroot) / 'avg_time.json', 'w') as f:
+#     json.dump(avgt, f)
 
-print('Saving all_differences')
-with open(Path(opt.dataroot) / 'all_differences.txt', 'w') as f:
-    for item in all_differences:
-        f.write(f"{item}\n")
+print('Saving no_tgt_differences')
+# with open(Path(opt.dataroot) / 'no_tgt_differences.json', 'w') as fout:
+#     json.dump(path_differences, fout)
+
+# print('Saving all_differences')
+# with open(Path(opt.dataroot) / 'all_differences.txt', 'w') as f:
+#     for item in all_differences:
+#         f.write(f"{item}\n")
 
 # Now all_differences[] contains all the deltas between generated frames and real frames
-mean = torch.mean(all_differences)
-std = torch.std(all_differences)
+print('Computing mean and variance')
+mean = torch.mean(torch.FloatTensor(all_differences))
+std = torch.std(torch.FloatTensor(all_differences))
 
-print(f'MEAN: {mean}')
-print(f'STD: {std}')
+print(f'MEAN: {mean.item()}')
+print(f'STD: {std.item()}')
 
 ms = {'mean': mean, 'std':std}
 with open(Path(opt.dataroot) / 'mean_std.json', 'w') as f:
-    json.dump(ms, fout)
+    json.dump(ms, f)

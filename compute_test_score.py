@@ -7,6 +7,7 @@ from data.data_loader import CreateDataLoader
 from models.models import create_model
 from glob import glob
 from pathlib import Path
+from time import time
 
 import json
 from tqdm import tqdm
@@ -24,7 +25,7 @@ class MeanVarOptions(TestOptions):
         TestOptions.__init__(self)
         self.parser.add_argument('--root-dir', help='dir containing the two classes folders', dest="root_dir")
         self.parser.add_argument('--gpu', type=bool, default=False, help='Train on GPU')
-        self.parser.add_argument('--mean-var', help='path to file with mean and std from validation set')
+        # self.parser.add_argument('--mean-var', help='path to file with mean and std from validation set')
 
 opt = MeanVarOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -38,19 +39,23 @@ opt.label_nc = 0
 opt.no_instance = True
 opt.resize_or_crop = "none"
 
-with open(Path(opt.mean_var) / 'mean_std.json', 'r') as fin:
-    ms = json.load(fin)
-    mean = ms['mean']
-    std = ms['std']
+# with open(Path(opt.mean_var) / 'mean_std.json', 'r') as fin:
+#     ms = json.load(fin)
+#     mean = float(ms['mean'])
+#     std = float(ms['std'])
+
+mean = 0.4041319787502289
+std = 0.02881813235580921
 
 model = create_model(opt)
 
 # Not real code TODO change with opt as MultiFrameDataset wants .initialize()...
 print('Processing has_target folder')
 has_tgt = MultiFrameDataset()
-opt.dataroot = str(Path(opt.root_dir) / "has_tgt")
+opt.dataroot = str(Path(opt.root_dir) / "has_target")
 has_tgt.initialize(opt)
 
+all_times = []
 identified = {}
 with torch.no_grad():
     for i, data in enumerate(tqdm(has_tgt)):
@@ -64,7 +69,10 @@ with torch.no_grad():
             left_frame = left_frame.to('cuda')
             real_right_frame = real_right_frame.to('cuda')
 
+        t0 = time()
         generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
+        t1 = time()
+        all_times.append(t1 - t0)
         loss = nn.MSELoss()
         cur_loss = float(loss(generated_right_frame, real_right_frame))
 
@@ -73,10 +81,11 @@ with torch.no_grad():
             if fname not in identified:
                 identified[fname] = {}
             identified[fname]['frame': Path(data['left_path']).name, 'score': cur_loss, 'has_tgt': 1]
+            print(f'FOUND ANOMALY AT FRAME: {fname}\n\t{identified[fname]}')
 
-print('Processing no_target folder')
+print('Processing normal folder')
 no_tgt = MultiFrameDataset()
-opt.dataroot = str(Path(opt.root_dir) / "no_tgt")
+opt.dataroot = str(Path(opt.root_dir) / "normal")
 no_tgt.initialize(opt)
 
 with torch.no_grad():
@@ -91,7 +100,10 @@ with torch.no_grad():
             left_frame = left_frame.to('cuda')
             real_right_frame = real_right_frame.to('cuda')
 
+        t0 = time()
         generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
+        t1 = time()
+        all_times.append(t1 - t0)
         loss = nn.MSELoss()
         cur_loss = float(loss(generated_right_frame, real_right_frame))
 
@@ -100,6 +112,10 @@ with torch.no_grad():
             if fname not in identified:
                 identified[fname] = {}
             identified[fname]['frame': Path(data['left_path']).name, 'score': cur_loss, 'has_tgt': 0]
+            print(f'FOUND ANOMALY AT FRAME: {fname}\n\t{identified[fname]}')
+
+avg_time = sum(all_times) / len(all_times)
+print(f'Average inference time: {avg_time}')
 
 with open(Path(opt.dataroot) / 'identified.json', 'w') as fout:
     json.dump(identified, fout)

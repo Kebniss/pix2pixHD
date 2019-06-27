@@ -9,6 +9,7 @@ from glob import glob
 from pathlib import Path
 from time import time
 
+import pandas as pd
 import json
 from tqdm import tqdm
 from PIL import Image
@@ -44,8 +45,8 @@ opt.resize_or_crop = "none"
 #     mean = float(ms['mean'])
 #     std = float(ms['std'])
 
-mean = 0.4041319787502289
-std = 0.02881813235580921
+mean = 0.013849902898073196
+std = 0.007992868311703205
 
 model = create_model(opt)
 
@@ -55,33 +56,35 @@ has_tgt = MultiFrameDataset()
 opt.dataroot = str(Path(opt.root_dir) / "has_target")
 has_tgt.initialize(opt)
 
-all_times = []
-identified = {}
+rows = []
 with torch.no_grad():
     for i, data in enumerate(tqdm(has_tgt)):
-        left_frame = Image.open(data['left_path'])
-        real_right_frame = Image.open(data['right_path'])
+        cur_frame = Image.open(data['left_path'])
+        next_frame = Image.open(data['right_path'])
 
-        left_frame = video_utils.im2tensor(left_frame)
-        real_right_frame = video_utils.im2tensor(real_right_frame)
+        cur_frame = video_utils.im2tensor(cur_frame)
+        next_frame = video_utils.im2tensor(next_frame)
 
         if opt.gpu:
-            left_frame = left_frame.to('cuda')
-            real_right_frame = real_right_frame.to('cuda')
+            cur_frame = cur_frame.to('cuda')
+            next_frame = next_frame.to('cuda')
 
         t0 = time()
-        generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
+        generated_next_frame = video_utils.next_frame_prediction(model, cur_frame)
         t1 = time()
-        all_times.append(t1 - t0)
         loss = nn.MSELoss()
-        cur_loss = float(loss(generated_right_frame, real_right_frame))
+        cur_loss = float(loss(generated_next_frame, next_frame))
 
-        if mean-2*std < cur_loss < mean+2*std:
-            fname = Path(data['left_path']).parent.name
-            if fname not in identified:
-                identified[fname] = {}
-            identified[fname]['frame': Path(data['left_path']).name, 'score': cur_loss, 'has_tgt': 1]
-            print(f'FOUND ANOMALY AT FRAME: {fname}\n\t{identified[fname]}')
+        row = {
+            'video_name': Path(cur_frame).parent.name,
+            'cur_frame': Path(cur_frame).name,
+            'next_frame': Path(next_frame).name,
+            'MSE': cur_loss,
+            'label': 0 if cur_loss < mean+2*std else 1,
+            'inference_time': t1-t0,
+        }
+        rows.append(row)
+
 
 print('Processing normal folder')
 no_tgt = MultiFrameDataset()
@@ -90,32 +93,31 @@ no_tgt.initialize(opt)
 
 with torch.no_grad():
     for i, data in enumerate(no_tgt):
-        left_frame = Image.open(data['left_path'])
-        real_right_frame = Image.open(data['right_path'])
+        cur_frame = Image.open(data['left_path'])
+        next_frame = Image.open(data['right_path'])
 
-        left_frame = video_utils.im2tensor(left_frame)
-        real_right_frame = video_utils.im2tensor(real_right_frame)
+        cur_frame = video_utils.im2tensor(cur_frame)
+        next_frame = video_utils.im2tensor(next_frame)
 
         if opt.gpu:
-            left_frame = left_frame.to('cuda')
-            real_right_frame = real_right_frame.to('cuda')
+            cur_frame = cur_frame.to('cuda')
+            next_frame = next_frame.to('cuda')
 
         t0 = time()
-        generated_right_frame = video_utils.next_frame_prediction(model, left_frame)
+        generated_next_frame = video_utils.next_frame_prediction(model, cur_frame)
         t1 = time()
-        all_times.append(t1 - t0)
         loss = nn.MSELoss()
-        cur_loss = float(loss(generated_right_frame, real_right_frame))
+        cur_loss = float(loss(generated_next_frame, next_frame))
 
-        if mean-2*std < cur_loss < mean+2*std:
-            fname = Path(data['left_path']).parent.name
-            if fname not in identified:
-                identified[fname] = {}
-            identified[fname]['frame': Path(data['left_path']).name, 'score': cur_loss, 'has_tgt': 0]
-            print(f'FOUND ANOMALY AT FRAME: {fname}\n\t{identified[fname]}')
+        row = {
+            'video_name': Path(cur_frame).parent.name,
+            'cur_frame': Path(cur_frame).name,
+            'next_frame': Path(next_frame).name,
+            'MSE': cur_loss,
+            'label': 0 if cur_loss < mean+2*std else 1,
+            'inference_time': t1-t0,
+        }
+        rows.append(row)
 
-avg_time = sum(all_times) / len(all_times)
-print(f'Average inference time: {avg_time}')
-
-with open(Path(opt.dataroot) / 'identified.json', 'w') as fout:
-    json.dump(identified, fout)
+df = pd.DataFrame(rows, columns = ['video_name', 'cur_frame', 'next_frame', 'diff', 'label', 'inference_time'])
+df.to_csv('anomalies.csv', index=False)

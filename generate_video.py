@@ -49,6 +49,7 @@ if os.path.isdir(frame_dir):
 os.mkdir(frame_dir)
 
 frame_index = 1
+model = create_model(opt)
 
 frames_path = opt.start_from
 if os.path.isdir(frames_path):
@@ -57,7 +58,6 @@ if os.path.isdir(frames_path):
 else:
     raise ValueError('Please provide the path to a folder with frames.jpg')
 
-model = create_model(opt)
 
 frames_count = 1
 next_frame = torch.Tensor()

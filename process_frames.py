@@ -75,12 +75,14 @@ class VideoProcessPipeline:
         self.video_labels = video_labels
 
         success, image = cv2_video.read()
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         for p in self.preprocess:
             image = p(image)
         self.frames.append((image, 0))
         i = 1
         while success:
             if i % save_every == 0:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 for p in self.preprocess:
                     image = p(image)
                 self.frames.append((image, i))
@@ -196,7 +198,7 @@ for p in tqdm.tqdm(validation_videos):
         vidcap,
         vname,
         labels[vname],
-        save_every=10,
+        save_every=3,
         scale_to_width=640
     )
     processed.label_frames()

@@ -36,6 +36,7 @@ opt.no_instance = True
 # could be changed, but not tested
 opt.resize_or_crop = "none"
 opt.batchSize = 1
+opt.flat = False
 
 # this debug directory will contain input/output frame pairs
 if opt.debug:
@@ -59,6 +60,9 @@ opt.video_mode = True
 # load frames dataset at the specified location
 data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
+
+print(f'Training data loaded from: {opt.dataroot}')
+print(f'Saving model to: {opt.name}')
 
 dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)

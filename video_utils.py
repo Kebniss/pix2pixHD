@@ -82,7 +82,7 @@ def extract_frames_from_video(video_path, frame_dir, output_shape=(1280, 736), f
     p = subprocess.Popen(shlex.split(command), shell=False)
     p.communicate()
 
-def video_from_frame_directory(frame_dir, video_path, frame_file_glob=r"frame-%05d.jpg", framerate=24, ffmpeg_verbosity=16, crop_to_720p=True, reverse=False):
+def video_from_frame_directory(frame_dir, video_path, frame_file_glob=r"frame-%05d.png", framerate=24, ffmpeg_verbosity=16, crop_to_720p=True, reverse=False):
     """Build a mp4 video from a directory frames
         note: crop_to_720p crops the top of 1280x736 images to get them to 1280x720
     """

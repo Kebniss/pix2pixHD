@@ -14,14 +14,16 @@ import torch
 import shutil
 import video_utils
 import image_transforms
+from data.multi_frame_dataset import MultiFrameDataset
 
 
-def extract_name(path):
-    pat = re.compile('(\d+)[\.jpg|\.png]')
-    return int(pat.search(path).group(1))
+class MeanVarOptions(TestOptions):
+    def __init__(self):
+        TestOptions.__init__(self)
+        self.parser.add_argument('--gpu', type=bool, default=False, help='Train on GPU')
+        self.parser.add_argument('--flat', type=bool, default=True, help='Flat folder structure')
 
-
-opt = TestOptions().parse(save=False)
+opt = MeanVarOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
 opt.batchSize = 1  # test code only supports batchSize = 1
 opt.serial_batches = True  # no shuffle
@@ -32,10 +34,7 @@ opt.video_mode = True
 opt.label_nc = 0
 opt.no_instance = True
 opt.resize_or_crop = "none"
-
-# loading initial frames from: ./datasets/NAME/test_frames
-data_loader = CreateDataLoader(opt)
-dataset = data_loader.load_data()
+opt.checkpoints_dir = '/home/ubuntu/pix2pixHD/checkpoints/'
 
 # this directory will contain the generated videos
 output_dir = os.path.join(opt.checkpoints_dir, opt.name, 'output')
@@ -48,33 +47,35 @@ if os.path.isdir(frame_dir):
     shutil.rmtree(frame_dir)
 os.mkdir(frame_dir)
 
-frame_index = 1
 model = create_model(opt)
 
-frames_path = opt.start_from
-if os.path.isdir(frames_path):
-    frames = [f for f in glob(str(Path(frames_path) / '*.jpg'))]
-    frames = sorted(frames, key=extract_name)
-else:
-    raise ValueError('Please provide the path to a folder with frames.jpg')
+positive_ds = MultiFrameDataset()
+positive_ds.initialize(opt)
+
+frame_index = 1
+print(f'LEN {len(positive_ds)}')
+with torch.no_grad():
+    for i, data in enumerate(tqdm(positive_ds)):
+        cur_frame = Image.open(data['left_path'])
+        next_frame = Image.open(data['right_path'])
+
+        cur_frame = video_utils.im2tensor(cur_frame)
+        next_frame = video_utils.im2tensor(next_frame)
+
+        if opt.gpu:
+            cur_frame = cur_frame.to('cuda')
+            next_frame = next_frame.to('cuda')
+
+        generated_next_frame = video_utils.next_frame_prediction(model, cur_frame)
+        
+        video_utils.save_tensor(
+        generated_next_frame,
+        frame_dir + "/frame-%s.png" % str(frame_index).zfill(5),
+        )
+        frame_index += 1
 
 
-frames_count = 1
-next_frame = torch.Tensor()
-for f in tqdm(frames):
-    current_frame = video_utils.im2tensor(Image.open(f))
-    if frames_count > 1 and next_frame == current_frame:
-        print('NEXT == GENERATED')
-    next_frame = video_utils.next_frame_prediction(model, current_frame)
-    if next_frame == current_frame:
-        print('CURRENT == GENERATED')
-    video_utils.save_tensor(
-        next_frame,
-        frame_dir + "/frame-%s.jpg" % str(frame_index).zfill(5),
-    )
-    frame_index += 1
-    prev = current_frame
-
+print('Finished generating images')
 duration_s = frame_index / opt.fps
 video_id = "epoch-%s_%s_%.1f-s_%.1f-fps" % (
     str(opt.which_epoch),
@@ -83,10 +84,11 @@ video_id = "epoch-%s_%s_%.1f-s_%.1f-fps" % (
     opt.fps
 )
 
+print(f'created video id {video_id}')
 video_path = output_dir + "/" + video_id + ".mp4"
 while os.path.isfile(video_path):
     video_path = video_path[:-4] + "-.mp4"
-
+print(f'modified video path {video_path}')
 video_utils.video_from_frame_directory(
     frame_dir,
     video_path,
@@ -94,5 +96,5 @@ video_utils.video_from_frame_directory(
     crop_to_720p=False,
     reverse=False
 )
-
+print('saved video')
 print("video ready:\n%s" % video_path)
